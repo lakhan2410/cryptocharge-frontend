@@ -1,4 +1,24 @@
 // =========================
+// Supabase Init
+// =========================
+const SUPABASE_URL = "https://beuwhycxtozapwbbrbqc.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJldXdoeWN4dG96YXB3YmJyYnFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MTI1NjIsImV4cCI6MjA3OTI4ODU2Mn0.ACw3j3HkAaXGt8SdJw11t0Ld54zhUCYKd9Jb3Rygv4U";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+// Temporary guest user (no auth yet)
+let userId = localStorage.getItem("cryptocharge_user_id");
+if (!userId) {
+  userId = crypto.randomUUID();
+  localStorage.setItem("cryptocharge_user_id", userId);
+  console.log("New guest user created:", userId);
+}
+
+// =========================
 // Shared constants / keys
 // =========================
 var STORAGE_BALANCE_KEY = "cc_wallet_balance_usdt";
@@ -35,7 +55,6 @@ var toastTimer = null;
 function showToast(message, type) {
   if (!toastEl) return;
 
-  // reset classes
   toastEl.className = "toast";
   if (type === "success") {
     toastEl.classList.add("toast-success");
@@ -74,7 +93,7 @@ var orderNoteEl = document.getElementById("orderNote");
 
 // Wallet UI
 var walletBalanceValue = document.getElementById("walletBalanceValue"); // may be null
-var navWalletBalance = document.getElementById("navWalletBalance");     // header chip
+var navWalletBalance = document.getElementById("navWalletBalance"); // header chip
 
 // Deposit / withdraw panels & controls
 var depositPanel = document.getElementById("depositPanel");
@@ -86,9 +105,9 @@ var withdrawAddressInput = document.getElementById("withdrawAddress");
 var confirmWithdrawBtn = document.getElementById("confirmWithdraw");
 
 // Buttons that open panels
-var openDepositBtn = document.getElementById("openDeposit");   // might not exist
+var openDepositBtn = document.getElementById("openDeposit"); // might not exist
 var openWithdrawBtn = document.getElementById("openWithdraw"); // might not exist
-var hwDepositBtn = document.getElementById("hwDepositBtn");    // header chip
+var hwDepositBtn = document.getElementById("hwDepositBtn"); // header chip
 var hwWithdrawBtn = document.getElementById("hwWithdrawBtn");
 
 // Success overlay (shared)
@@ -101,7 +120,7 @@ var successAmountLabel = document.getElementById("successAmountLabel");
 var successExtraLabel = document.getElementById("successExtraLabel");
 
 // =========================
-/** LocalStorage helpers **/
+/** LocalStorage helpers (still used for local demo history) **/
 // =========================
 
 function loadBalance() {
@@ -135,7 +154,10 @@ function saveActivity(arr) {
 function addActivity(kind, desc) {
   var log = loadActivity();
   var now = new Date();
-  var time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  var time = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   log.unshift({
     kind: kind,
@@ -153,7 +175,7 @@ function addActivity(kind, desc) {
 // Wallet balance state
 // =========================
 
-var walletBalance = loadBalance();
+var walletBalance = loadBalance(); // initial fallback; will be overridden by DB
 
 function renderWalletBalance() {
   if (walletBalanceValue) {
@@ -161,6 +183,104 @@ function renderWalletBalance() {
   }
   if (navWalletBalance) {
     navWalletBalance.textContent = walletBalance.toFixed(4) + " USDT";
+  }
+}
+
+// =========================
+// Supabase wallet helpers
+// =========================
+
+async function ensureUserAndWallet() {
+  try {
+    // Ensure user row exists
+    const { error: userErr } = await supabaseClient
+      .from("users")
+      .upsert({ id: userId }, { onConflict: "id" });
+    if (userErr) {
+      console.error("Supabase user upsert error:", userErr);
+    }
+
+    // Try to get wallet row
+    let { data, error } = await supabaseClient
+      .from("wallet_balances")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      // not "no rows"
+      console.error("Supabase wallet select error:", error);
+    }
+
+    if (!data) {
+      // Create with default demo balance
+      const defaultBal = 50.0;
+      const { data: inserted, error: insertErr } = await supabaseClient
+        .from("wallet_balances")
+        .insert({
+          user_id: userId,
+          balance: defaultBal,
+        })
+        .select()
+        .single();
+
+      if (insertErr) {
+        console.error("Supabase wallet insert error:", insertErr);
+        return defaultBal;
+      }
+      return inserted.balance ?? defaultBal;
+    }
+
+    return parseFloat(data.balance ?? 0);
+  } catch (err) {
+    console.error("ensureUserAndWallet exception:", err);
+    return loadBalance();
+  }
+}
+
+async function updateWalletBalanceInDB(newBalance) {
+  try {
+    const { error } = await supabaseClient
+      .from("wallet_balances")
+      .update({
+        balance: newBalance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Supabase wallet update error:", error);
+    }
+  } catch (err) {
+    console.error("updateWalletBalanceInDB exception:", err);
+  }
+}
+
+async function recordTransaction(type, amount, status) {
+  try {
+    const { error } = await supabaseClient.from("transactions").insert({
+      user_id: userId,
+      type: type,
+      amount: amount,
+      status: status || "success",
+    });
+
+    if (error) {
+      console.error("Supabase tx insert error:", error);
+    }
+  } catch (err) {
+    console.error("recordTransaction exception:", err);
+  }
+}
+
+async function initWalletFromSupabase() {
+  const balance = await ensureUserAndWallet();
+  if (typeof balance === "number" && !isNaN(balance)) {
+    walletBalance = balance;
+    saveBalance(walletBalance); // keep local demo in sync
+    renderWalletBalance();
+  } else {
+    renderWalletBalance();
   }
 }
 
@@ -298,7 +418,7 @@ if (successCloseBtn && successOverlay) {
 // =========================
 
 if (payBtn) {
-  payBtn.addEventListener("click", function () {
+  payBtn.addEventListener("click", async function () {
     var amt = parseFloat(amountInput.value || "0");
     if (!amt || amt <= 0) {
       showToast("Enter a valid recharge amount in INR to continue.", "error");
@@ -317,9 +437,14 @@ if (payBtn) {
       return;
     }
 
+    // Deduct locally
     walletBalance -= totalCrypto;
     saveBalance(walletBalance);
     renderWalletBalance();
+
+    // Update in Supabase (fire and forget)
+    updateWalletBalanceInDB(walletBalance);
+    recordTransaction("recharge", totalCrypto, "success");
 
     var randomId = Math.floor(10000 + Math.random() * 90000);
     if (orderIdEl) {
@@ -340,7 +465,6 @@ if (payBtn) {
       "Paid " + totalCrypto.toFixed(4) + " " + token + " for mobile recharge."
     );
 
-    // Data for success overlay
     var mobile = (document.getElementById("mobileNumber").value || "").trim();
     var operator = document.getElementById("operator").value || "";
 
@@ -361,7 +485,7 @@ if (payBtn) {
 // =========================
 
 if (confirmDepositBtn) {
-  confirmDepositBtn.addEventListener("click", function () {
+  confirmDepositBtn.addEventListener("click", async function () {
     var dep = parseFloat(depositAmountInput.value || "0");
     if (!dep || dep <= 0) {
       showToast("Enter a positive amount to simulate a deposit.", "error");
@@ -372,6 +496,9 @@ if (confirmDepositBtn) {
     saveBalance(walletBalance);
     renderWalletBalance();
     depositAmountInput.value = "";
+
+    updateWalletBalanceInDB(walletBalance);
+    recordTransaction("deposit", dep, "success");
 
     addActivity("Deposit", "Added " + dep.toFixed(4) + " USDT to wallet.");
 
@@ -389,7 +516,7 @@ if (confirmDepositBtn) {
 // =========================
 
 if (confirmWithdrawBtn) {
-  confirmWithdrawBtn.addEventListener("click", function () {
+  confirmWithdrawBtn.addEventListener("click", async function () {
     var amt = parseFloat(withdrawAmountInput.value || "0");
     var addr = (withdrawAddressInput.value || "").trim();
 
@@ -418,6 +545,9 @@ if (confirmWithdrawBtn) {
     withdrawAmountInput.value = "";
     withdrawAddressInput.value = "";
 
+    updateWalletBalanceInDB(walletBalance);
+    recordTransaction("withdraw", amt, "success");
+
     addActivity(
       "Withdraw",
       "Requested " + amt.toFixed(4) + " USDT to " + addr.slice(0, 10) + "..."
@@ -432,12 +562,6 @@ if (confirmWithdrawBtn) {
 }
 
 // =========================
-// Initial render
-// =========================
-
-renderWalletBalance();
-updateSummary();
-// =========================
 // Scroll reveal (auto-attach)
 // =========================
 
@@ -447,7 +571,7 @@ updateSummary();
     ".hero-right",
     ".demo-guide-card",
     ".section-how",
-    ".section-why"
+    ".section-why",
   ];
 
   var revealEls = [];
@@ -479,9 +603,44 @@ updateSummary();
       observer.observe(el);
     });
   } else {
-    // Fallback: show all
     revealEls.forEach(function (el) {
       el.classList.add("visible");
     });
   }
 })();
+
+// =========================
+// Subtle 3D tilt on app card
+// =========================
+
+var appCard = document.querySelector(".app-card");
+
+if (appCard && window.matchMedia("(pointer: fine)").matches) {
+  appCard.addEventListener("mousemove", function (e) {
+    var rect = appCard.getBoundingClientRect();
+    var x = e.clientX - rect.left;
+    var y = e.clientY - rect.top;
+
+    var rotateY = ((x / rect.width) - 0.5) * 8; // -4 to 4 deg
+    var rotateX = ((y / rect.height) - 0.5) * -8; // -4 to 4 deg
+
+    appCard.style.transform =
+      "perspective(700px) rotateX(" +
+      rotateX.toFixed(2) +
+      "deg) rotateY(" +
+      rotateY.toFixed(2) +
+      "deg)";
+  });
+
+  appCard.addEventListener("mouseleave", function () {
+    appCard.style.transform = "perspective(700px) translateY(0)";
+  });
+}
+
+// =========================
+// Initial render + Supabase sync
+// =========================
+
+renderWalletBalance();
+updateSummary();
+initWalletFromSupabase();
