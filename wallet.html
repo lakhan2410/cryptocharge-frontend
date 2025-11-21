@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CryptoCharge Wallet – Balance & Activity</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <!-- NAVBAR -->
+    <header class="nav">
+      <div class="nav-left">
+        <div class="logo-mark">CC</div>
+        <div>
+          <div class="logo-text-main">CryptoCharge</div>
+          <div class="logo-text-sub">Your Crypto. Your Bills. Sorted.</div>
+        </div>
+      </div>
+      <div class="nav-right">
+        <a href="index.html" class="nav-link">Recharges</a>
+        <div class="nav-pill">Wallet · Demo</div>
+      </div>
+    </header>
+
+    <main class="wallet-layout">
+      <!-- LEFT: SUMMARY -->
+      <section class="wallet-summary-section">
+        <h1 class="section-title">Wallet overview</h1>
+        <p class="section-subtitle">
+          This page shows your demo CryptoCharge wallet balance and all on-platform actions.
+          The same balance is used on the recharge prototype.
+        </p>
+
+        <div class="wallet-main-card">
+          <div class="wallet-main-header">
+            <div>
+              <div class="wallet-main-label">Total balance</div>
+              <div class="wallet-main-value" id="walletBalanceValue">
+                0.0000 USDT
+              </div>
+            </div>
+            <div class="wallet-main-tag">Demo · BNB Chain · USDT</div>
+          </div>
+
+          <div class="wallet-main-footer">
+            <div class="wallet-main-pill">
+              Network <span>BNB Chain (BEP-20)</span>
+            </div>
+            <div class="wallet-main-pill">
+              Token <span>USDT</span>
+            </div>
+          </div>
+
+          <p class="hint" style="margin-top:8px;">
+            Perform demo deposits, recharges and withdrawals on the main page.
+            This view reads from local storage and keeps everything in sync.
+          </p>
+        </div>
+      </section>
+
+      <!-- RIGHT: ACTIVITY -->
+      <section class="wallet-activity-section">
+        <h2 class="section-title">Activity</h2>
+        <p class="section-subtitle">
+          Ledger-style list of deposits, recharges and withdrawals (last 20 actions).
+        </p>
+
+        <div class="txn-filters">
+          <button class="filter-pill active" data-filter="ALL">All</button>
+          <button class="filter-pill" data-filter="Deposit">Deposits</button>
+          <button class="filter-pill" data-filter="Recharge">Recharges</button>
+          <button class="filter-pill" data-filter="Withdraw">Withdrawals</button>
+        </div>
+
+        <div class="activity-card">
+          <div class="activity-header">
+            <span class="activity-title">Recent activity</span>
+            <span class="activity-caption">Synced with the main prototype page.</span>
+          </div>
+          <ul class="txn-list" id="activityList">
+            <li class="activity-empty">
+              No activity recorded yet. Go to the main page and try a demo
+              deposit, recharge or withdrawal.
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div>© <span id="year"></span> CryptoCharge. All rights reserved.</div>
+      <div class="footer-links">
+        <span class="pill-small">Prototype UI · Demo wallet</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- TOAST NOTIFICATION (wallet page) -->
+  <div class="toast" id="toast"></div>
+
+  <script src="wallet.js"></script>
+</body>
+</html>
+

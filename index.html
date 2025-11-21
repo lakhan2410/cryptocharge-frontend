@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CryptoCharge – Your Crypto. Your Bills. Sorted.</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="description"
+    content="CryptoCharge lets you pay Indian mobile recharges and bills using stablecoins like USDT and USDC."
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- GLOBAL BACKGROUND LAYER -->
+  <div class="bg-layer">
+    <div class="energy-lines">
+      <div class="energy-line"></div>
+      <div class="energy-line"></div>
+      <div class="energy-line"></div>
+    </div>
+
+    <div class="bg-icons">
+      <span class="bg-icon">₹</span>
+      <span class="bg-icon">⚡</span>
+      <span class="bg-icon">📶</span>
+      <span class="bg-icon">💳</span>
+      <span class="bg-icon">🛰️</span>
+    </div>
+  </div>
+
+  <div class="page">
+    <!-- NAVBAR -->
+    <header class="nav">
+      <div class="nav-left">
+        <div class="logo-mark">CC</div>
+        <div>
+          <div class="logo-text-main">CryptoCharge</div>
+          <div class="logo-text-sub">Your Crypto. Your Bills. Sorted.</div>
+        </div>
+      </div>
+      <div class="nav-right">
+        <div class="nav-pill">MVP · Private Beta Soon</div>
+        <button class="nav-btn" onclick="scrollToApp()">
+          Launch App Preview
+          <span class="icon">↗</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- HERO -->
+    <main class="hero">
+      <!-- LEFT SIDE -->
+      <section class="hero-left reveal">
+        <div class="badge-row">
+          <div class="badge">
+            <span class="badge-dot"></span>
+            Stablecoin-powered recharges
+          </div>
+          <div class="badge">Built in India · For the world</div>
+        </div>
+
+        <h1 class="hero-title">
+          <span class="gradient">Turn Stablecoins</span> into
+          real-world power.
+        </h1>
+        <p class="hero-subtitle">
+          CryptoCharge lets you pay for mobile recharges and bills using
+          stablecoins like USDT and USDC. No card. No bank. Just your wallet.
+        </p>
+        <p class="hero-secondary">
+          Starting with <span class="highlight">USDT on BNB Chain</span> for
+          Indian mobile recharges. More networks and billers coming soon.
+        </p>
+
+        <div class="hero-cta-row">
+          <button class="btn-primary" onclick="scrollToApp()">
+            Try Recharge Prototype
+            <span>⚡</span>
+          </button>
+          <button
+            class="btn-ghost"
+            onclick="document
+              .getElementById('how-it-works')
+              .scrollIntoView({ behavior: 'smooth' })"
+          >
+            View How It Works
+            <span>→</span>
+          </button>
+        </div>
+
+        <div class="hero-metrics">
+          <div class="metric-pill">
+            <span class="value">₹</span>
+            <span>Local bills, global money</span>
+          </div>
+          <div class="metric-pill">
+            <span class="value">USDT</span>
+            <span>Pay straight from your wallet</span>
+          </div>
+          <div class="metric-pill">
+            <span class="value">0.5–2%</span>
+            <span>Transparent platform fees</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT SIDE (APP CARD + WALLET CHIP) -->
+      <section class="hero-right" id="app-section">
+        <div class="blur-orb"></div>
+
+        <!-- Floating wallet chip above card -->
+        <div class="app-wallet-card">
+          <div class="nav-wallet-main">
+            <div class="nav-wallet-icon">💼</div>
+            <div class="nav-wallet-text">
+              <div class="nav-wallet-title">CryptoCharge Wallet</div>
+              <div class="nav-wallet-sub">Demo · BNB · USDT</div>
+            </div>
+            <div class="nav-wallet-balance" id="navWalletBalance">
+              0.0000 USDT
+            </div>
+          </div>
+          <div class="nav-wallet-actions">
+            <button type="button" class="nav-wallet-btn" id="hwDepositBtn">
+              Deposit
+            </button>
+            <button type="button" class="nav-wallet-btn" id="hwWithdrawBtn">
+              Withdraw
+            </button>
+            <button
+              type="button"
+              class="nav-wallet-btn secondary"
+              onclick="window.location.href='wallet.html'"
+            >
+              History
+            </button>
+          </div>
+        </div>
+
+        <!-- MAIN APP CARD -->
+        <div class="app-card reveal">
+          <div class="app-card-header">
+            <div class="app-title-block">
+              <div class="app-title">Recharge with Stablecoins</div>
+              <div class="app-caption">Prototype · No real payments yet</div>
+            </div>
+            <div class="chip-live">
+              <span class="chip-dot"></span>
+              Chain: BNB · USDT
+            </div>
+          </div>
+
+          <!-- SERVICE TABS -->
+          <div class="service-tabs">
+            <button class="tab active">Mobile</button>
+            <button class="tab">DTH · Soon</button>
+            <button class="tab">Electricity · Soon</button>
+          </div>
+
+          <!-- FORM FIELDS -->
+          <div class="field">
+            <span class="label">Mobile Number</span>
+            <input
+              type="tel"
+              class="input"
+              placeholder="Enter 10-digit number"
+              id="mobileNumber"
+              maxlength="10"
+            />
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <span class="label">Operator</span>
+              <select id="operator">
+                <option value="">Select</option>
+                <option>Jio</option>
+                <option>Airtel</option>
+                <option>Vi</option>
+                <option>BSNL</option>
+              </select>
+            </div>
+            <div class="field">
+              <span class="label">Circle</span>
+              <select id="circle">
+                <option value="">Select</option>
+                <option>Maharashtra</option>
+                <option>Delhi NCR</option>
+                <option>Gujarat</option>
+                <option>Karnataka</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <span class="label">Recharge Amount (₹)</span>
+              <input
+                type="number"
+                class="input"
+                id="amountInr"
+                placeholder="e.g. 299"
+                min="1"
+              />
+              <span class="hint">We’ll convert this into USDT/USDC.</span>
+            </div>
+            <div class="field">
+              <span class="label">Pay With</span>
+              <select id="tokenSelect">
+                <option value="USDT">USDT</option>
+                <option value="USDC">USDC</option>
+              </select>
+              <span class="hint">MVP: USDT on BNB first.</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="label">Network</span>
+            <select id="networkSelect">
+              <option value="BNB">BNB Chain (BEP-20)</option>
+              <option value="Base" disabled>Base · Coming Soon</option>
+            </select>
+            <span class="hint">
+              Gas fees are low. You only pay on-chain fees + small platform fee.
+            </span>
+          </div>
+
+          <!-- SUMMARY -->
+          <div class="summary-box">
+            <div class="summary-row">
+              <span class="summary-label">Recharge Amount</span>
+              <span class="summary-value" id="sumAmountInr">₹0</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Estimated Crypto</span>
+              <span class="summary-value" id="sumAmountCrypto">
+                0.0000 USDT
+              </span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Platform Fee</span>
+              <span class="summary-value" id="sumFee">0.5%</span>
+            </div>
+            <div class="summary-row total">
+              <span class="summary-label">Total Payable</span>
+              <span class="summary-value" id="sumTotalCrypto">
+                0.0000 USDT
+              </span>
+            </div>
+          </div>
+
+          <button class="pay-btn" id="payBtn">
+            Confirm Recharge from Wallet
+            <span>⚡</span>
+          </button>
+
+          <!-- RECHARGE ORDER BOX (DEMO) -->
+          <div class="wallet-box" id="walletBox">
+            <div class="wallet-label">Demo order preview</div>
+            <div class="order-id" id="orderId">Order ID: —</div>
+            <div class="hint" id="orderNote">
+              In production, this will show live order details and status.
+            </div>
+          </div>
+
+          <!-- DEPOSIT PANEL (DEMO) -->
+          <div class="wallet-panel" id="depositPanel">
+            <div class="wallet-panel-title">Deposit (Demo Simulation)</div>
+            <p class="wallet-panel-text">
+              In the real app, you’ll send USDT (BEP-20) to your unique deposit
+              address. For this prototype, enter an amount to simulate a
+              successful deposit.
+            </p>
+            <div class="wallet-panel-row">
+              <div>
+                <div class="label">Network</div>
+                <div class="pill-small">BNB Chain · BEP-20</div>
+              </div>
+              <div>
+                <div class="label">Token</div>
+                <div class="pill-small">USDT</div>
+              </div>
+            </div>
+            <div class="label" style="margin-top:8px;">Demo Deposit Address</div>
+            <div class="wallet-address small-address">
+              0xYOUR_BNB_CHAIN_WALLET_ADDRESS_HERE
+            </div>
+
+            <div class="field" style="margin-top:8px;">
+              <span class="label">Simulate deposit amount (USDT)</span>
+              <input
+                type="number"
+                class="input"
+                id="depositAmount"
+                placeholder="e.g. 25"
+                min="0"
+                step="0.0001"
+              />
+            </div>
+            <button class="wallet-small-btn" id="confirmDeposit">
+              Add to Demo Balance
+            </button>
+          </div>
+
+          <!-- WITHDRAW PANEL (DEMO) -->
+          <div class="wallet-panel" id="withdrawPanel">
+            <div class="wallet-panel-title">Withdraw (Demo Simulation)</div>
+            <p class="wallet-panel-text">
+              In the real app, withdrawals will trigger an on-chain transaction
+              from CryptoCharge to your wallet. Here, we just simulate balance
+              changes.
+            </p>
+
+            <div class="field">
+              <span class="label">Amount to withdraw (USDT)</span>
+              <input
+                type="number"
+                class="input"
+                id="withdrawAmount"
+                placeholder="e.g. 10"
+                min="0"
+                step="0.0001"
+              />
+            </div>
+
+            <div class="field">
+              <span class="label">Your BNB wallet address (demo)</span>
+              <input
+                type="text"
+                class="input"
+                id="withdrawAddress"
+                placeholder="0x..."
+              />
+              <span class="hint">
+                In the real product, funds will be sent to this address on BNB
+                Chain.
+              </span>
+            </div>
+
+            <button class="wallet-small-btn secondary" id="confirmWithdraw">
+              Submit Withdraw (Demo)
+            </button>
+          </div>
+
+          <!-- GLOBAL SUCCESS OVERLAY -->
+          <div class="success-overlay" id="successOverlay">
+            <div class="success-dialog">
+              <div class="success-icon" id="successIcon">⚡</div>
+              <div class="success-title" id="successTitle">Action completed</div>
+              <p class="success-text" id="successText">
+                This is a demo confirmation screen. In production, you’ll see
+                actual status, transaction details and receipts here.
+              </p>
+              <div class="success-meta">
+                <span id="successAmountLabel">Amount</span>
+                <span id="successExtraLabel">Extra info</span>
+              </div>
+              <button class="success-btn" id="successCloseBtn">
+                Close &amp; continue
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DEMO GUIDE CARD -->
+        <div class="demo-guide-card reveal">
+          <div class="demo-guide-title">How to use this demo</div>
+          <ol class="demo-guide-list">
+            <li>Use <strong>Deposit</strong> to add demo USDT to your CryptoCharge wallet.</li>
+            <li>Enter your mobile number, operator, circle and recharge amount.</li>
+            <li>Tap <strong>Confirm Recharge</strong> to simulate a recharge and see history update.</li>
+          </ol>
+          <p class="demo-guide-note">
+            No real payments or recharges happen yet. This is a UX prototype to show the flow.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- HOW IT WORKS -->
+    <section class="section section-how reveal" id="how-it-works">
+      <div class="section-header">
+        <div class="section-kicker">How CryptoCharge Works</div>
+        <h2 class="section-title">From stablecoins to Indian recharges.</h2>
+        <p class="section-subtitle">
+          In Phase 1, CryptoCharge connects your on-chain stablecoin payment to
+          traditional recharge APIs in the background. You deposit once, then
+          do multiple instant recharges from your in-app wallet.
+        </p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-tag">Step 1</div>
+          <div class="step-title">Deposit stablecoins into your wallet</div>
+          <p class="step-text">
+            You receive a deposit address for USDT/USDC on supported chains.
+            When your funds arrive, your CryptoCharge wallet balance is
+            updated.
+          </p>
+        </div>
+        <div class="step-card">
+          <div class="step-tag">Step 2</div>
+          <div class="step-title">Recharge instantly from balance</div>
+          <p class="step-text">
+            Enter your recharge details and pay directly from your wallet
+            balance. No need to wait for a fresh on-chain confirmation each
+            time.
+          </p>
+        </div>
+        <div class="step-card">
+          <div class="step-tag">Step 3</div>
+          <div class="step-title">Withdraw any unused funds</div>
+          <p class="step-text">
+            If you have remaining USDT/USDC, you can request a withdrawal back
+            to your own wallet. CryptoCharge sends it on-chain.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY + FAQ -->
+    <section class="section section-why reveal">
+      <div class="section-orb"></div>
+      <div class="two-col">
+        <div>
+          <div class="section-header">
+            <div class="section-kicker">Why CryptoCharge</div>
+            <h2 class="section-title">Real utility for your crypto.</h2>
+            <p class="section-subtitle">
+              We’re not another meme token. CryptoCharge focuses on one simple
+              promise: turn your stablecoins into real-world value you can feel
+              every month.
+            </p>
+          </div>
+          <div class="feature-list">
+            <div class="feature-item">
+              <strong>Stablecoin-first design</strong>
+              Use USDT or USDC instead of bank accounts or cards. Perfect for
+              on-chain earners and traders.
+            </div>
+            <div class="feature-item">
+              <strong>Transparent fees</strong>
+              See INR amount, platform fee, and estimated crypto before you
+              confirm. No hidden charges.
+            </div>
+            <div class="feature-item">
+              <strong>Global → Local bridge</strong>
+              You can earn in crypto globally and still pay for your local
+              Indian bills, starting with mobile recharges.
+            </div>
+            <div class="feature-item">
+              <strong>Future ready</strong>
+              Roadmap includes DTH, electricity, and more Asian markets — all
+              powered by on-chain payments.
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="faq-card">
+            <div class="faq-q">Is this live right now?</div>
+            <div class="faq-a">
+              This is a frontend prototype. On this page, no real payments or
+              recharges are happening yet. It’s meant to demo the UX and flow.
+            </div>
+
+            <div class="faq-q">Which chains and tokens will you support?</div>
+            <div class="faq-a">
+              Phase 1 focuses on USDT (BEP-20) on BNB Chain. Base + USDC and
+              additional networks can be added as we grow.
+            </div>
+
+            <div class="faq-q">How will the backend work?</div>
+            <div class="faq-a">
+              The backend will watch the blockchain for your transaction,
+              verify the amount and order, then credit your wallet balance and
+              call a recharge API using INR float. Later versions may use smart
+              contracts for more transparency.
+            </div>
+
+            <div class="faq-q">Who is behind CryptoCharge?</div>
+            <div class="faq-a">
+              CryptoCharge is founded by Lakhan Dhaygude, a builder focused on
+              turning Web3 into everyday utility. This prototype is the first
+              step toward a full product.
+            </div>
+
+            <div class="pill-small" style="margin-top: 4px;">
+              Contact: cryptocharge.io@outlook.com
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div>© <span id="year"></span> CryptoCharge. All rights reserved.</div>
+      <div class="footer-links">
+        <span class="pill-small">Prototype UI · Not financial advice</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
