@@ -1,26 +1,44 @@
 // =========================
-// Supabase Init
+// Supabase init (safe / optional)
 // =========================
+
 const SUPABASE_URL = "https://beuwhycxtozapwbbrbqc.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJldXdoeWN4dG96YXB3YmJyYnFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MTI1NjIsImV4cCI6MjA3OTI4ODU2Mn0.ACw3j3HkAaXGt8SdJw11t0Ld54zhUCYKd9Jb3Rygv4U";
 
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+let supabaseClient = null;
 
-// Temporary guest user (no auth yet)
+try {
+  if (window.supabase && typeof window.supabase.createClient === "function") {
+    supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
+    console.log("Supabase client initialised.");
+  } else {
+    console.warn(
+      "Supabase library not found. Running in local-only demo mode (localStorage)."
+    );
+  }
+} catch (err) {
+  console.warn(
+    "Supabase init failed. Falling back to local-only mode.",
+    err
+  );
+  supabaseClient = null;
+}
+
+// Temporary guest user (for later DB use)
 let userId = localStorage.getItem("cryptocharge_user_id");
 if (!userId) {
   userId = crypto.randomUUID();
   localStorage.setItem("cryptocharge_user_id", userId);
-  console.log("New guest user created:", userId);
 }
 
 // =========================
 // Shared constants / keys
 // =========================
+
 var STORAGE_BALANCE_KEY = "cc_wallet_balance_usdt";
 var STORAGE_ACTIVITY_KEY = "cc_activity_log";
 
@@ -31,7 +49,7 @@ var PLATFORM_FEE_PERCENT = 0.5; // %
 // Basic helpers
 // =========================
 
-// Smooth scroll to app card
+// Smooth scroll to app card (used by HTML onclick)
 function scrollToApp() {
   var section = document.getElementById("app-section");
   if (section) {
@@ -87,12 +105,13 @@ var sumFee = document.getElementById("sumFee");
 var payBtn = document.getElementById("payBtn");
 
 // Order info (demo)
-var walletBox = document.getElementById("walletBox");
 var orderIdEl = document.getElementById("orderId");
+var orderSummaryEl = document.getElementById("orderSummary");
+var orderNetworkEl = document.getElementById("orderNetwork");
 var orderNoteEl = document.getElementById("orderNote");
 
 // Wallet UI
-var walletBalanceValue = document.getElementById("walletBalanceValue"); // may be null
+var walletBalanceValue = document.getElementById("walletBalanceValue"); // app card
 var navWalletBalance = document.getElementById("navWalletBalance"); // header chip
 
 // Deposit / withdraw panels & controls
@@ -105,12 +124,12 @@ var withdrawAddressInput = document.getElementById("withdrawAddress");
 var confirmWithdrawBtn = document.getElementById("confirmWithdraw");
 
 // Buttons that open panels
-var openDepositBtn = document.getElementById("openDeposit"); // might not exist
-var openWithdrawBtn = document.getElementById("openWithdraw"); // might not exist
+var openDepositBtn = document.getElementById("openDeposit"); // old button (if any)
+var openWithdrawBtn = document.getElementById("openWithdraw");
 var hwDepositBtn = document.getElementById("hwDepositBtn"); // header chip
 var hwWithdrawBtn = document.getElementById("hwWithdrawBtn");
 
-// Success overlay (shared)
+// Success overlay
 var successOverlay = document.getElementById("successOverlay");
 var successCloseBtn = document.getElementById("successCloseBtn");
 var successIcon = document.getElementById("successIcon");
@@ -120,7 +139,7 @@ var successAmountLabel = document.getElementById("successAmountLabel");
 var successExtraLabel = document.getElementById("successExtraLabel");
 
 // =========================
-/** LocalStorage helpers (still used for local demo history) **/
+// LocalStorage helpers
 // =========================
 
 function loadBalance() {
@@ -175,7 +194,7 @@ function addActivity(kind, desc) {
 // Wallet balance state
 // =========================
 
-var walletBalance = loadBalance(); // initial fallback; will be overridden by DB
+var walletBalance = loadBalance(); // initial fallback; later we can sync with DB
 
 function renderWalletBalance() {
   if (walletBalanceValue) {
@@ -187,20 +206,23 @@ function renderWalletBalance() {
 }
 
 // =========================
-// Supabase wallet helpers
+// Supabase wallet helpers (only used if client exists)
 // =========================
 
 async function ensureUserAndWallet() {
+  if (!supabaseClient) {
+    return loadBalance();
+  }
+
   try {
-    // Ensure user row exists
     const { error: userErr } = await supabaseClient
       .from("users")
       .upsert({ id: userId }, { onConflict: "id" });
+
     if (userErr) {
       console.error("Supabase user upsert error:", userErr);
     }
 
-    // Try to get wallet row
     let { data, error } = await supabaseClient
       .from("wallet_balances")
       .select("*")
@@ -208,12 +230,10 @@ async function ensureUserAndWallet() {
       .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
-      // not "no rows"
       console.error("Supabase wallet select error:", error);
     }
 
     if (!data) {
-      // Create with default demo balance
       const defaultBal = 50.0;
       const { data: inserted, error: insertErr } = await supabaseClient
         .from("wallet_balances")
@@ -239,6 +259,7 @@ async function ensureUserAndWallet() {
 }
 
 async function updateWalletBalanceInDB(newBalance) {
+  if (!supabaseClient) return;
   try {
     const { error } = await supabaseClient
       .from("wallet_balances")
@@ -257,6 +278,7 @@ async function updateWalletBalanceInDB(newBalance) {
 }
 
 async function recordTransaction(type, amount, status) {
+  if (!supabaseClient) return;
   try {
     const { error } = await supabaseClient.from("transactions").insert({
       user_id: userId,
@@ -314,6 +336,7 @@ function updateSummary() {
   }
 }
 
+// Bind summary updates
 if (amountInput) {
   amountInput.addEventListener("input", updateSummary);
 }
@@ -375,167 +398,96 @@ function showSuccessOverlay(kind, amountText, extraText) {
   var title = "Action completed";
   var text =
     "This is a demo confirmation screen. In production you’ll see real status here.";
-  var icon = "⚡";
 
-  if (kind === "recharge") {
+  if (kind === "deposit") {
+    title = "Deposit added";
+    text = "Funds added to your CryptoCharge demo wallet.";
+  } else if (kind === "withdraw") {
+    title = "Withdraw request created";
+    text =
+      "In a real app, this would show on-chain status and transaction hash.";
+  } else if (kind === "recharge") {
     title = "Recharge simulated";
     text =
-      "We’ve debited your demo wallet balance. A real app would now trigger an INR recharge.";
-    icon = "📱";
-  } else if (kind === "deposit") {
-    title = "Deposit added to wallet";
-    text =
-      "Your demo balance has been topped up. In production this would follow an on-chain confirmation.";
-    icon = "⬆";
-  } else if (kind === "withdraw") {
-    title = "Withdraw request simulated";
-    text =
-      "A real app would now create a withdrawal job and send funds on-chain to your address.";
-    icon = "⬇";
+      "In the live version this would be a real recharge confirmation screen.";
   }
 
   if (successTitle) successTitle.textContent = title;
   if (successText) successText.textContent = text;
-  if (successIcon) successIcon.textContent = icon;
-  if (successAmountLabel && amountText) {
-    successAmountLabel.textContent = amountText;
-  }
-  if (successExtraLabel && extraText) {
-    successExtraLabel.textContent = extraText;
-  }
+  if (successAmountLabel) successAmountLabel.textContent = amountText || "";
+  if (successExtraLabel) successExtraLabel.textContent = extraText || "";
 
+  // ✅ Force overlay visible, support both .visible and .show CSS
+  successOverlay.style.display = "flex";
   successOverlay.classList.add("visible");
+  successOverlay.classList.add("show");
 }
 
 if (successCloseBtn && successOverlay) {
   successCloseBtn.addEventListener("click", function () {
     successOverlay.classList.remove("visible");
+    successOverlay.classList.remove("show");
+    successOverlay.style.display = "none";
+  });
+}
+
+if (successOverlay) {
+  successOverlay.addEventListener("click", function (e) {
+    if (e.target === successOverlay) {
+      successOverlay.classList.remove("visible");
+      successOverlay.classList.remove("show");
+      successOverlay.style.display = "none";
+    }
   });
 }
 
 // =========================
-// Recharge flow (from wallet)
-// =========================
-
-if (payBtn) {
-  payBtn.addEventListener("click", async function () {
-    var amt = parseFloat(amountInput.value || "0");
-    if (!amt || amt <= 0) {
-      showToast("Enter a valid recharge amount in INR to continue.", "error");
-      return;
-    }
-
-    var token = tokenSelect ? tokenSelect.value || "USDT" : "USDT";
-    var baseCrypto = amt / RATE_INR_PER_USD;
-    var totalCrypto = baseCrypto * (1 + PLATFORM_FEE_PERCENT / 100);
-
-    if (totalCrypto > walletBalance) {
-      showToast(
-        "Insufficient wallet balance. Top up using Deposit.",
-        "error"
-      );
-      return;
-    }
-
-    // Deduct locally
-    walletBalance -= totalCrypto;
-    saveBalance(walletBalance);
-    renderWalletBalance();
-
-    // Update in Supabase (fire and forget)
-    updateWalletBalanceInDB(walletBalance);
-    recordTransaction("recharge", totalCrypto, "success");
-
-    var randomId = Math.floor(10000 + Math.random() * 90000);
-    if (orderIdEl) {
-      orderIdEl.textContent = "Order ID: #CC-" + randomId;
-    }
-    if (orderNoteEl) {
-      orderNoteEl.textContent =
-        "Demo only: In production, this would create a real order, deduct your on-platform balance, and trigger an INR recharge via partner API.";
-    }
-    if (walletBox) {
-      walletBox.style.display = "block";
-    }
-
-    updateSummary();
-
-    addActivity(
-      "Recharge",
-      "Paid " + totalCrypto.toFixed(4) + " " + token + " for mobile recharge."
-    );
-
-    var mobile = (document.getElementById("mobileNumber").value || "").trim();
-    var operator = document.getElementById("operator").value || "";
-
-    var amountText =
-      "Paid " + totalCrypto.toFixed(4) + " " + token + " from wallet.";
-    var extraText = "For " + (mobile || "your mobile number");
-    if (operator) {
-      extraText += " · " + operator;
-    }
-
-    showSuccessOverlay("recharge", amountText, extraText);
-    showToast("Recharge simulated from demo wallet.", "success");
-  });
-}
-
-// =========================
-// Deposit (demo)
+// Deposit / Withdraw logic
 // =========================
 
 if (confirmDepositBtn) {
   confirmDepositBtn.addEventListener("click", async function () {
-    var dep = parseFloat(depositAmountInput.value || "0");
-    if (!dep || dep <= 0) {
-      showToast("Enter a positive amount to simulate a deposit.", "error");
+    var amt = parseFloat(depositAmountInput.value || "0");
+    if (isNaN(amt) || amt <= 0) {
+      showToast("Enter a valid deposit amount.", "error");
       return;
     }
 
-    walletBalance += dep;
+    walletBalance += amt;
     saveBalance(walletBalance);
     renderWalletBalance();
     depositAmountInput.value = "";
 
-    updateWalletBalanceInDB(walletBalance);
-    recordTransaction("deposit", dep, "success");
+    // optional DB sync
+    await updateWalletBalanceInDB(walletBalance);
+    await recordTransaction("deposit", amt, "success");
 
-    addActivity("Deposit", "Added " + dep.toFixed(4) + " USDT to wallet.");
+    addActivity(
+      "Deposit",
+      "Added " + amt.toFixed(4) + " USDT to your CryptoCharge wallet."
+    );
 
-    var amountText = "Added " + dep.toFixed(4) + " USDT to wallet.";
-    var extraText =
-      "New demo balance: " + walletBalance.toFixed(4) + " USDT.";
-
-    showSuccessOverlay("deposit", amountText, extraText);
+    var amountText = "You added " + amt.toFixed(4) + " USDT.";
+    showSuccessOverlay("deposit", amountText, "");
     showToast("Demo deposit added to wallet.", "success");
   });
 }
-
-// =========================
-// Withdraw (demo)
-// =========================
 
 if (confirmWithdrawBtn) {
   confirmWithdrawBtn.addEventListener("click", async function () {
     var amt = parseFloat(withdrawAmountInput.value || "0");
     var addr = (withdrawAddressInput.value || "").trim();
 
-    if (!amt || amt <= 0) {
-      showToast("Enter a positive amount to withdraw.", "error");
+    if (isNaN(amt) || amt <= 0) {
+      showToast("Enter a valid withdraw amount.", "error");
+      return;
+    }
+    if (!addr || addr.length < 6) {
+      showToast("Enter a valid wallet address.", "error");
       return;
     }
     if (amt > walletBalance) {
-      showToast(
-        "Withdrawal amount exceeds your wallet balance.",
-        "error"
-      );
-      return;
-    }
-    if (!addr || !addr.startsWith("0x") || addr.length < 10) {
-      showToast(
-        "Enter a demo BNB wallet address starting with 0x.",
-        "error"
-      );
+      showToast("Not enough balance for this withdrawal.", "error");
       return;
     }
 
@@ -545,8 +497,8 @@ if (confirmWithdrawBtn) {
     withdrawAmountInput.value = "";
     withdrawAddressInput.value = "";
 
-    updateWalletBalanceInDB(walletBalance);
-    recordTransaction("withdraw", amt, "success");
+    await updateWalletBalanceInDB(walletBalance);
+    await recordTransaction("withdraw", amt, "success");
 
     addActivity(
       "Withdraw",
@@ -562,7 +514,61 @@ if (confirmWithdrawBtn) {
 }
 
 // =========================
-// Scroll reveal (auto-attach)
+// Confirm Recharge from Wallet
+// =========================
+
+if (payBtn) {
+  payBtn.addEventListener("click", async function () {
+    var amtInr = parseFloat(amountInput.value || "0");
+    if (isNaN(amtInr) || amtInr <= 0) {
+      showToast("Enter a valid recharge amount in INR.", "error");
+      return;
+    }
+
+    var baseCrypto = amtInr / RATE_INR_PER_USD;
+    var totalCrypto = baseCrypto * (1 + PLATFORM_FEE_PERCENT / 100);
+
+    if (totalCrypto > walletBalance + 1e-9) {
+      showToast("Not enough wallet balance for this recharge.", "error");
+      return;
+    }
+
+    walletBalance -= totalCrypto;
+    saveBalance(walletBalance);
+    renderWalletBalance();
+
+    // Simple fake order info
+    var orderId = "CC-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+    if (orderIdEl) orderIdEl.textContent = orderId;
+    if (orderSummaryEl)
+      orderSummaryEl.textContent =
+        "Mobile recharge for ₹" + amtInr.toFixed(0) + ".";
+    if (orderNetworkEl) orderNetworkEl.textContent = "BNB Chain • USDT";
+    if (orderNoteEl)
+      orderNoteEl.textContent =
+        "This is a frontend demo. No real recharge or payment is made.";
+
+    await updateWalletBalanceInDB(walletBalance);
+    await recordTransaction("recharge", totalCrypto, "success");
+
+    addActivity(
+      "Recharge",
+      "Paid " + totalCrypto.toFixed(4) + " USDT for mobile recharge."
+    );
+
+    var amountText =
+      "You spent " +
+      totalCrypto.toFixed(4) +
+      " USDT for a ₹" +
+      amtInr.toFixed(0) +
+      " recharge.";
+    showSuccessOverlay("recharge", amountText, "");
+    showToast("Demo recharge simulated.", "success");
+  });
+}
+
+// =========================
+// Scroll reveal (hero + sections)
 // =========================
 
 (function () {
@@ -638,9 +644,13 @@ if (appCard && window.matchMedia("(pointer: fine)").matches) {
 }
 
 // =========================
-// Initial render + Supabase sync
+// Initial render
 // =========================
 
 renderWalletBalance();
 updateSummary();
-initWalletFromSupabase();
+
+// Only try DB sync if Supabase actually exists
+if (supabaseClient) {
+  initWalletFromSupabase();
+}
