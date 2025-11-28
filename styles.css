@@ -254,6 +254,7 @@ a {
   margin-bottom: 8px;
   position: relative;
   z-index: 1;
+  text-shadow: 0 0 8px rgba(15, 23, 42, 0.8);
 }
 .hero-title span.gradient {
   background: linear-gradient(135deg, var(--primary), var(--accent));
@@ -1261,8 +1262,9 @@ select:focus {
 }
 
 .txn-time {
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text-muted);
+  opacity: 0.9;
 }
 
 /* Color coding */
@@ -1907,4 +1909,24 @@ select:focus {
 .app-card {
   opacity: 1 !important;
   transform: none !important;
+}
+/* --------- Hero clarity override (no blurry glow) --------- */
+
+/* Make sure there is no background or pseudo-element behind the hero text */
+.hero-left {
+  background: transparent !important;
+}
+
+.hero-left::before,
+.hero-left::after,
+.hero::before,
+.hero::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Make hero title text as sharp as possible */
+.hero-title {
+  text-shadow: none !important;
+  filter: none !important;
 }
