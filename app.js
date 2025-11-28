@@ -28,10 +28,14 @@ try {
   supabaseClient = null;
 }
 
-// Temporary guest user (for later DB use)
+// Anonymous device user (per-device wallet)
 let userId = localStorage.getItem("cryptocharge_user_id");
 if (!userId) {
-  userId = crypto.randomUUID();
+  if (window.crypto && typeof crypto.randomUUID === "function") {
+    userId = crypto.randomUUID();
+  } else {
+    userId = "guest_" + Math.random().toString(36).slice(2);
+  }
   localStorage.setItem("cryptocharge_user_id", userId);
 }
 
@@ -417,7 +421,7 @@ function showSuccessOverlay(kind, amountText, extraText) {
   if (successAmountLabel) successAmountLabel.textContent = amountText || "";
   if (successExtraLabel) successExtraLabel.textContent = extraText || "";
 
-  // ✅ Force overlay visible, support both .visible and .show CSS
+  // Force overlay visible, support both .visible and .show CSS
   successOverlay.style.display = "flex";
   successOverlay.classList.add("visible");
   successOverlay.classList.add("show");
