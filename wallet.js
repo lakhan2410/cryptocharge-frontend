@@ -1,63 +1,85 @@
-var STORAGE_BALANCE_KEY = "cc_wallet_balance_usdt";
-var STORAGE_ACTIVITY_KEY = "cc_activity_log";
+// =========================
+// Supabase init (same project as app.js)
+// =========================
 
-var walletBalanceValue = document.getElementById("walletBalanceValue");
-var activityListEl = document.getElementById("activityList");
-var filterButtons = document.querySelectorAll(".filter-pill");
-var yearEl = document.getElementById("year");
+const SUPABASE_URL = "https://beuwhycxtozapwbbrbqc.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJldXdoeWN4dG96YXB3YmJyYnFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MTI1NjIsImV4cCI6MjA3OTI4ODU2Mn0.ACw3j3HkAaXGt8SdJw11t0Ld54zhUCYKd9Jb3Rygv4U";
 
-// Year in footer
+let supabaseClient = null;
+
+try {
+  if (window.supabase && typeof window.supabase.createClient === "function") {
+    supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
+    console.log("Supabase (wallet.js) initialised.");
+  } else {
+    console.warn("Supabase not found – wallet history using localStorage only.");
+  }
+} catch (err) {
+  console.warn("Supabase init failed in wallet.js:", err);
+  supabaseClient = null;
+}
+
+// Same anonymous user id as main page
+const userId = localStorage.getItem("cryptocharge_user_id");
+
+// =========================
+// Constants & DOM
+// =========================
+
+const STORAGE_BALANCE_KEY = "cc_wallet_balance_usdt";
+const STORAGE_ACTIVITY_KEY = "cc_activity_log";
+
+const walletBalanceValue = document.getElementById("walletBalanceValue");
+const activityListEl = document.getElementById("activityList");
+const filterButtons = document.querySelectorAll(".filter-pill");
+const toastEl = document.getElementById("toast");
+const yearEl = document.getElementById("year");
+
 if (yearEl) {
   yearEl.textContent = new Date().getFullYear().toString();
 }
 
 // =========================
-// Toast helper (same style as main page)
+// Toast helper
 // =========================
-var toastEl = document.getElementById("toast");
-var toastTimer = null;
+
+let toastTimer = null;
 
 function showToast(message, type) {
   if (!toastEl) return;
 
-  toastEl.className = "toast";
-  if (type === "success") {
-    toastEl.classList.add("toast-success");
-  } else if (type === "error") {
-    toastEl.classList.add("toast-error");
-  }
+  toastEl.className = "toast"; // reset
+  if (type === "success") toastEl.classList.add("toast-success");
+  if (type === "error") toastEl.classList.add("toast-error");
 
   toastEl.textContent = message;
   toastEl.classList.add("show");
 
-  if (toastTimer) {
-    clearTimeout(toastTimer);
-  }
-  toastTimer = setTimeout(function () {
-    toastEl.classList.remove("show");
-  }, 2500);
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2500);
 }
 
 // =========================
-// Data helpers
+// Local helpers
 // =========================
 
-function loadBalance() {
-  var stored = localStorage.getItem(STORAGE_BALANCE_KEY);
-  if (!stored) return 50.0;
-  var val = parseFloat(stored);
-  if (isNaN(val)) return 50.0;
-  return val;
+function loadBalanceLocal() {
+  const stored = localStorage.getItem(STORAGE_BALANCE_KEY);
+  const val = parseFloat(stored);
+  return isNaN(val) ? 50.0 : val;
 }
 
-function loadActivity() {
-  var raw = localStorage.getItem(STORAGE_ACTIVITY_KEY);
+function loadActivityLocal() {
+  const raw = localStorage.getItem(STORAGE_ACTIVITY_KEY);
   if (!raw) return [];
   try {
-    var arr = JSON.parse(raw);
-    if (Array.isArray(arr)) return arr;
-    return [];
-  } catch (e) {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
     return [];
   }
 }
@@ -67,17 +89,15 @@ function loadActivity() {
 // =========================
 
 function renderBalance() {
-  var bal = loadBalance();
-  if (walletBalanceValue) {
-    walletBalanceValue.textContent = bal.toFixed(4) + " USDT";
-  }
+  if (!walletBalanceValue) return;
+  const bal = loadBalanceLocal();
+  walletBalanceValue.textContent = bal.toFixed(4) + " USDT";
 }
 
 // =========================
-// Activity rendering
+// Activity meta & rendering
 // =========================
 
-// meta for type
 function getKindMeta(kind) {
   if (kind === "Deposit") {
     return { icon: "⬆", cls: "txn-deposit", sign: "+", label: "Deposit" };
@@ -91,67 +111,56 @@ function getKindMeta(kind) {
   return { icon: "•", cls: "", sign: "", label: kind || "Activity" };
 }
 
-// extract first number from desc
+// Extract first number from "Added 10.0000 USDT"
 function extractAmount(desc) {
   if (!desc) return null;
-  var m = desc.match(/([0-9]+(\.[0-9]+)?)/);
+  const m = desc.match(/([0-9]+(\.[0-9]+)?)/);
   if (!m) return null;
-  var n = parseFloat(m[1]);
-  if (isNaN(n)) return null;
-  return n;
+  const n = parseFloat(m[1]);
+  return isNaN(n) ? null : n;
 }
 
+// This will hold the "normalized" activity items we render
+// Each item: { kind, desc, timeLabel, amount }
+let currentActivityLog = [];
+
+// Renders list according to filterKind ("ALL" / "Deposit" / "Recharge" / "Withdraw")
 function renderActivity(filterKind) {
   if (!activityListEl) return;
 
-  var log = loadActivity();
-  var filtered = log;
+  let list = currentActivityLog;
 
   if (filterKind && filterKind !== "ALL") {
-    filtered = log.filter(function (item) {
-      return item.kind === filterKind;
-    });
+    list = list.filter((item) => item.kind === filterKind);
   }
 
-  if (!filtered.length) {
+  if (!list.length) {
     activityListEl.innerHTML =
       '<li class="activity-empty">No matching activity yet. Try a demo deposit, recharge or withdrawal on the main page.</li>';
     return;
   }
 
-  var html = filtered
-    .map(function (item) {
-      var meta = getKindMeta(item.kind);
-      var amt = extractAmount(item.desc);
-      var amountStr = amt != null ? meta.sign + amt.toFixed(4) : "—";
+  const html = list
+    .map((item) => {
+      const meta = getKindMeta(item.kind);
+      const amountStr =
+        item.amount != null ? meta.sign + item.amount.toFixed(4) : "—";
 
-      return (
-        '<li class="txn-row ' +
-        meta.cls +
-        '">' +
-        '<div class="txn-left">' +
-        '<div class="txn-icon">' +
-        meta.icon +
-        "</div>" +
-        '<div class="txn-main">' +
-        '<div class="txn-title">' +
-        meta.label +
-        "</div>" +
-        '<div class="txn-desc">' +
-        item.desc +
-        "</div>" +
-        "</div>" +
-        "</div>" +
-        '<div class="txn-right">' +
-        '<div class="txn-amount">' +
-        amountStr +
-        " USDT</div>" +
-        '<div class="txn-time">' +
-        (item.time || "") +
-        "</div>" +
-        "</div>" +
-        "</li>"
-      );
+      return `
+        <li class="txn-row ${meta.cls}">
+          <div class="txn-left">
+            <div class="txn-icon">${meta.icon}</div>
+            <div class="txn-main">
+              <div class="txn-title">${meta.label}</div>
+              <div class="txn-desc">${item.desc}</div>
+            </div>
+          </div>
+          <div class="txn-right">
+            <div class="txn-amount">${amountStr} USDT</div>
+            <div class="txn-time">${item.timeLabel || ""}</div>
+          </div>
+        </li>
+      `;
     })
     .join("");
 
@@ -159,7 +168,92 @@ function renderActivity(filterKind) {
 }
 
 // =========================
-// Filters + toasts
+// Load from Supabase (preferred)
+// =========================
+
+async function loadHistoryFromSupabase() {
+  if (!supabaseClient || !userId) {
+    console.warn("No Supabase or userId – falling back to local activity log.");
+    loadHistoryFromLocal();
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("transactions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("id", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error("Supabase transactions error:", error);
+      loadHistoryFromLocal();
+      return;
+    }
+
+    currentActivityLog = data.map((t) => {
+      const kind =
+        t.type === "deposit"
+          ? "Deposit"
+          : t.type === "withdraw"
+          ? "Withdraw"
+          : "Recharge";
+
+      const d = t.created_at ? new Date(t.created_at) : null;
+      const timeLabel =
+        d && !isNaN(d.getTime())
+          ? d.toLocaleString([], {
+              month: "short",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "";
+
+      let desc;
+      if (kind === "Deposit") {
+        desc = `Added ${Number(t.amount).toFixed(4)} USDT`;
+      } else if (kind === "Withdraw") {
+        desc = `Withdrew ${Number(t.amount).toFixed(4)} USDT`;
+      } else {
+        desc = `Paid ${Number(t.amount).toFixed(4)} USDT for mobile recharge.`;
+      }
+
+      return {
+        kind,
+        desc,
+        timeLabel, // <-- always a formatted string, never "Invalid Date"
+        amount: Number(t.amount),
+      };
+    });
+
+    renderActivity("ALL");
+  } catch (err) {
+    console.error("loadHistoryFromSupabase exception:", err);
+    loadHistoryFromLocal();
+  }
+}
+
+// =========================
+// Fallback: localStorage activity
+// =========================
+
+function loadHistoryFromLocal() {
+  const rawLog = loadActivityLocal();
+
+  currentActivityLog = rawLog.map((item) => ({
+    kind: item.kind,
+    desc: item.desc,
+    timeLabel: item.time || "", // already formatted (e.g. "10:08 PM")
+    amount: extractAmount(item.desc),
+  }));
+
+  renderActivity("ALL");
+}
+
+// =========================
+// Filters
 // =========================
 
 function filterLabel(kind) {
@@ -169,28 +263,22 @@ function filterLabel(kind) {
   return "All activity";
 }
 
-filterButtons.forEach(function (btn) {
-  btn.addEventListener("click", function () {
-    var filter = btn.getAttribute("data-filter") || "ALL";
+filterButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const filter = btn.getAttribute("data-filter") || "ALL";
 
-    filterButtons.forEach(function (b) {
-      b.classList.remove("active");
-    });
+    filterButtons.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
 
     renderActivity(filter);
 
-    // Check if there is any matching activity
-    var log = loadActivity();
-    var hasActivity =
+    const hasActivity =
       filter === "ALL"
-        ? log.length > 0
-        : log.some(function (item) {
-            return item.kind === filter;
-          });
+        ? currentActivityLog.length > 0
+        : currentActivityLog.some((i) => i.kind === filter);
 
     if (!hasActivity) {
-      var msg =
+      const msg =
         filter === "Deposit"
           ? "No Deposits yet — try a demo deposit on main page."
           : filter === "Recharge"
@@ -206,231 +294,12 @@ filterButtons.forEach(function (btn) {
 });
 
 // =========================
-// Initial render
+// Initial load
 // =========================
 
 renderBalance();
-renderActivity("ALL");
+loadHistoryFromSupabase(); // will fallback to local if needed
 
-// Small info toast on first load
-setTimeout(function () {
+setTimeout(() => {
   showToast("Wallet synced with main prototype.", "success");
-}, 400);
-var STORAGE_BALANCE_KEY = "cc_wallet_balance_usdt";
-var STORAGE_ACTIVITY_KEY = "cc_activity_log";
-
-var walletBalanceValue = document.getElementById("walletBalanceValue");
-var activityListEl = document.getElementById("activityList");
-var filterButtons = document.querySelectorAll(".filter-pill");
-var yearEl = document.getElementById("year");
-
-// Year in footer
-if (yearEl) {
-  yearEl.textContent = new Date().getFullYear().toString();
-}
-
-// =========================
-// Toast helper (same style as main page)
-// =========================
-var toastEl = document.getElementById("toast");
-var toastTimer = null;
-
-function showToast(message, type) {
-  if (!toastEl) return;
-
-  toastEl.className = "toast";
-  if (type === "success") {
-    toastEl.classList.add("toast-success");
-  } else if (type === "error") {
-    toastEl.classList.add("toast-error");
-  }
-
-  toastEl.textContent = message;
-  toastEl.classList.add("show");
-
-  if (toastTimer) {
-    clearTimeout(toastTimer);
-  }
-  toastTimer = setTimeout(function () {
-    toastEl.classList.remove("show");
-  }, 2500);
-}
-
-// =========================
-// Data helpers
-// =========================
-
-function loadBalance() {
-  var stored = localStorage.getItem(STORAGE_BALANCE_KEY);
-  if (!stored) return 50.0;
-  var val = parseFloat(stored);
-  if (isNaN(val)) return 50.0;
-  return val;
-}
-
-function loadActivity() {
-  var raw = localStorage.getItem(STORAGE_ACTIVITY_KEY);
-  if (!raw) return [];
-  try {
-    var arr = JSON.parse(raw);
-    if (Array.isArray(arr)) return arr;
-    return [];
-  } catch (e) {
-    return [];
-  }
-}
-
-// =========================
-// Render balance
-// =========================
-
-function renderBalance() {
-  var bal = loadBalance();
-  if (walletBalanceValue) {
-    walletBalanceValue.textContent = bal.toFixed(4) + " USDT";
-  }
-}
-
-// =========================
-// Activity rendering
-// =========================
-
-// meta for type
-function getKindMeta(kind) {
-  if (kind === "Deposit") {
-    return { icon: "⬆", cls: "txn-deposit", sign: "+", label: "Deposit" };
-  }
-  if (kind === "Recharge") {
-    return { icon: "📱", cls: "txn-recharge", sign: "-", label: "Recharge" };
-  }
-  if (kind === "Withdraw") {
-    return { icon: "⬇", cls: "txn-withdraw", sign: "-", label: "Withdraw" };
-  }
-  return { icon: "•", cls: "", sign: "", label: kind || "Activity" };
-}
-
-// extract first number from desc
-function extractAmount(desc) {
-  if (!desc) return null;
-  var m = desc.match(/([0-9]+(\.[0-9]+)?)/);
-  if (!m) return null;
-  var n = parseFloat(m[1]);
-  if (isNaN(n)) return null;
-  return n;
-}
-
-function renderActivity(filterKind) {
-  if (!activityListEl) return;
-
-  var log = loadActivity();
-  var filtered = log;
-
-  if (filterKind && filterKind !== "ALL") {
-    filtered = log.filter(function (item) {
-      return item.kind === filterKind;
-    });
-  }
-
-  if (!filtered.length) {
-    activityListEl.innerHTML =
-      '<li class="activity-empty">No matching activity yet. Try a demo deposit, recharge or withdrawal on the main page.</li>';
-    return;
-  }
-
-  var html = filtered
-    .map(function (item) {
-      var meta = getKindMeta(item.kind);
-      var amt = extractAmount(item.desc);
-      var amountStr = amt != null ? meta.sign + amt.toFixed(4) : "—";
-
-      return (
-        '<li class="txn-row ' +
-        meta.cls +
-        '">' +
-        '<div class="txn-left">' +
-        '<div class="txn-icon">' +
-        meta.icon +
-        "</div>" +
-        '<div class="txn-main">' +
-        '<div class="txn-title">' +
-        meta.label +
-        "</div>" +
-        '<div class="txn-desc">' +
-        item.desc +
-        "</div>" +
-        "</div>" +
-        "</div>" +
-        '<div class="txn-right">' +
-        '<div class="txn-amount">' +
-        amountStr +
-        " USDT</div>" +
-        '<div class="txn-time">' +
-        (item.time || "") +
-        "</div>" +
-        "</div>" +
-        "</li>"
-      );
-    })
-    .join("");
-
-  activityListEl.innerHTML = html;
-}
-
-// =========================
-// Filters + toasts
-// =========================
-
-function filterLabel(kind) {
-  if (kind === "Deposit") return "Deposits";
-  if (kind === "Recharge") return "Recharges";
-  if (kind === "Withdraw") return "Withdrawals";
-  return "All activity";
-}
-
-filterButtons.forEach(function (btn) {
-  btn.addEventListener("click", function () {
-    var filter = btn.getAttribute("data-filter") || "ALL";
-
-    filterButtons.forEach(function (b) {
-      b.classList.remove("active");
-    });
-    btn.classList.add("active");
-
-    renderActivity(filter);
-
-    // Check if there is any matching activity
-    var log = loadActivity();
-    var hasActivity =
-      filter === "ALL"
-        ? log.length > 0
-        : log.some(function (item) {
-            return item.kind === filter;
-          });
-
-    if (!hasActivity) {
-      var msg =
-        filter === "Deposit"
-          ? "No Deposits yet — try a demo deposit on main page."
-          : filter === "Recharge"
-          ? "No Recharges yet — simulate one on main page."
-          : filter === "Withdraw"
-          ? "No Withdrawals yet — try a demo withdrawal."
-          : "No activity yet — use the main prototype to create some.";
-      showToast(msg, "error");
-    } else {
-      showToast("Showing " + filterLabel(filter) + ".", "success");
-    }
-  });
-});
-
-// =========================
-// Initial render
-// =========================
-
-renderBalance();
-renderActivity("ALL");
-
-// Small info toast on first load
-setTimeout(function () {
-  showToast("Wallet synced with main prototype.", "success");
-}, 400);
+}, 500);
